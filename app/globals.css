@@ -1,0 +1,295 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- ambient colour channels (registered so they animate smoothly) ---------- */
+@property --amb-a-r { syntax: "<number>"; inherits: true; initial-value: 135; }
+@property --amb-a-g { syntax: "<number>"; inherits: true; initial-value: 84; }
+@property --amb-a-b { syntax: "<number>"; inherits: true; initial-value: 246; }
+@property --amb-b-r { syntax: "<number>"; inherits: true; initial-value: 164; }
+@property --amb-b-g { syntax: "<number>"; inherits: true; initial-value: 108; }
+@property --amb-b-b { syntax: "<number>"; inherits: true; initial-value: 255; }
+
+:root {
+  color-scheme: dark;
+  --ink: #10081d;
+  --night: #160d26;
+  --plum: #1d1230;
+  --grape: #211438;
+  --violet: #8754f6;
+  --electric: #a46cff;
+  --mint: #55f0b0;
+  --bone: #f6f0ff;
+  --lavender: #b9a9d1;
+  --line: rgba(190, 145, 255, 0.14);
+  transition:
+    --amb-a-r 1000ms ease, --amb-a-g 1000ms ease, --amb-a-b 1000ms ease,
+    --amb-b-r 1000ms ease, --amb-b-g 1000ms ease, --amb-b-b 1000ms ease;
+}
+
+/* The solid colour lives on html. The body stays transparent so the animated
+   world layer (fixed, behind the content) is never painted over. */
+html {
+  background: #10081d;
+}
+
+body {
+  min-height: 100vh;
+  background: transparent;
+  color: var(--bone);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+  border-radius: 0.75rem;
+}
+
+::selection {
+  background: var(--mint);
+  color: var(--ink);
+}
+
+/* ---------- surfaces ---------- */
+.glass {
+  background: linear-gradient(180deg, rgba(40, 24, 68, 0.66), rgba(24, 14, 42, 0.74));
+  border: 1px solid var(--line);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 24px 60px -28px rgba(6, 2, 16, 0.9);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  backdrop-filter: blur(14px) saturate(1.25);
+}
+
+.glass-solid {
+  background: #1d1230;
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 44px -26px rgba(6, 2, 16, 0.9);
+}
+
+.field {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(190, 145, 255, 0.16);
+  background: rgba(16, 8, 29, 0.72);
+  padding: 0.8rem 1rem;
+  color: var(--bone);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+.field::placeholder {
+  color: rgba(185, 169, 209, 0.55);
+}
+.field:hover {
+  border-color: rgba(190, 145, 255, 0.3);
+}
+.field:focus {
+  outline: none;
+  border-color: rgba(85, 240, 176, 0.7);
+  background: rgba(16, 8, 29, 0.9);
+  box-shadow: 0 0 0 4px rgba(85, 240, 176, 0.14), 0 10px 30px -14px rgba(85, 240, 176, 0.4);
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(164, 108, 255, 0.45) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(164, 108, 255, 0.45);
+  border-radius: 999px;
+}
+
+/* ---------- streaming caret and loader ---------- */
+.caret::after {
+  content: "";
+  display: inline-block;
+  width: 0.5ch;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: blink 0.9s steps(2, start) infinite;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: dot-bounce 1s ease-in-out infinite;
+}
+.dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* ---------- keyframes ---------- */
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+@keyframes dot-bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes drift-a {
+  from {
+    transform: translate3d(-6%, -4%, 0) scale(1);
+    opacity: 0.85;
+  }
+  to {
+    transform: translate3d(8%, 6%, 0) scale(1.14);
+    opacity: 1;
+  }
+}
+@keyframes drift-b {
+  from {
+    transform: translate3d(6%, 4%, 0) scale(1.1);
+    opacity: 0.7;
+  }
+  to {
+    transform: translate3d(-8%, -6%, 0) scale(0.95);
+    opacity: 0.95;
+  }
+}
+@keyframes drift-c {
+  from {
+    transform: translate3d(-4%, 6%, 0) scale(1);
+    opacity: 0.6;
+  }
+  to {
+    transform: translate3d(6%, -4%, 0) scale(1.18);
+    opacity: 0.9;
+  }
+}
+@keyframes dust {
+  to {
+    transform: translate3d(-120px, -240px, 0);
+  }
+}
+@keyframes bob {
+  0%, 100% {
+    transform: translateY(0) rotate(var(--r, 0deg));
+  }
+  50% {
+    transform: translateY(-14px) rotate(calc(var(--r, 0deg) * -1));
+  }
+}
+@keyframes glow-breathe {
+  from {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes roll-x {
+  from {
+    transform: translateX(-20vw);
+  }
+  to {
+    transform: translateX(115vw);
+  }
+}
+@keyframes roll-spin {
+  to {
+    transform: rotate(2700deg);
+  }
+}
+@keyframes hop {
+  0%, 100% {
+    transform: translateY(0) scale(1.05, 0.94);
+  }
+  50% {
+    transform: translateY(-16px) scale(0.97, 1.04);
+  }
+}
+@keyframes echo-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+@keyframes bolt-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(164, 108, 255, 0.55));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(85, 240, 176, 0.7));
+    transform: scale(1.08);
+  }
+}
+
+/* ---------- echo headline ---------- */
+.echo-ghost {
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  pointer-events: none;
+  user-select: none;
+  transform-origin: 50% 55%;
+  -webkit-text-stroke: 2px rgba(85, 240, 176, 0.9);
+  animation: echo-ring 3.6s ease-out infinite;
+}
+.echo-ghost:nth-child(2) {
+  -webkit-text-stroke-color: rgba(135, 84, 246, 0.9);
+  animation-delay: 0.45s;
+}
+.echo-ghost:nth-child(3) {
+  -webkit-text-stroke-color: rgba(164, 108, 255, 0.55);
+  animation-delay: 0.9s;
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .world *,
+  .echo-ghost,
+  .caret::after,
+  .dot,
+  .calm * {
+    animation: none !important;
+  }
+  .roller {
+    display: none;
+  }
+  .echo-ghost {
+    opacity: 0.35;
+    transform: translate(0.04em, 0.04em);
+  }
+  :root {
+    transition: none;
+  }
+}
