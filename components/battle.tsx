@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useId, useRef, useState } from "react";
+import { ArenaStage } from "./arena-stage";
 import { ChogAvatar } from "./chog-avatar";
 import { BubbleButton, EchoBubble } from "./echo-bubble";
 import { EmptyState } from "./empty-state";
@@ -102,6 +103,10 @@ export function Battle() {
   const [winner, setWinner] = useState<"a" | "b" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);
+  const [fighters, setFighters] = useState<{ a: ChogToken; b: ChogToken } | null>(null);
+  const [ra, setRa] = useState<Side>(EMPTY);
+  const [rb, setRb] = useState<Side>(EMPTY);
+  const [threaded, setThreaded] = useState(false);
   const battleId = useRef("");
   const seeded = useRef(false);
 
@@ -125,6 +130,10 @@ export function Battle() {
     setError(null);
     setWinner(null);
     setRound((n) => n + 1);
+    setFighters({ a: tokenA, b: tokenB });
+    setRa(EMPTY);
+    setRb(EMPTY);
+    setThreaded(false);
     setA({ ...EMPTY, streaming: true });
     setB({ ...EMPTY, streaming: true });
     battleId.current = newId();
@@ -181,7 +190,59 @@ export function Battle() {
     if (winnerSide.feedId) updateFeedItem(winnerSide.feedId, { won: true });
   }
 
+  async function thread() {
+    if (!fighters || !done || ra.streaming || rb.streaming) return;
+    setError(null);
+    setThreaded(true);
+    setRa({ ...EMPTY, streaming: true });
+    setRb({ ...EMPTY, streaming: true });
+    try {
+      if (!fighters.a.isDemo || !fighters.b.isDemo) await ensureAuth();
+    } catch (e) {
+      setError(errorMessage(e));
+      setThreaded(false);
+      setRa(EMPTY);
+      setRb(EMPTY);
+      return;
+    }
+
+    const reply = async (token: ChogToken, target: string, set: (fn: (s: Side) => Side) => void) => {
+      try {
+        const full = await run({
+          token,
+          kind: "reply",
+          topic: "",
+          target,
+          onChunk: (t) => set((s) => ({ ...s, text: t })),
+        });
+        addFeedItem({
+          id: newId(),
+          createdAt: Date.now(),
+          tokenId: token.tokenId,
+          tokenName: token.name,
+          image: token.image,
+          traits: token.traits,
+          kind: "reply",
+          topic: topic.trim(),
+          target,
+          text: full,
+          demo: !!token.isDemo,
+          battleId: battleId.current,
+        });
+        set((s) => ({ ...s, streaming: false }));
+      } catch (e) {
+        set((s) => ({ ...s, streaming: false, error: errorMessage(e) }));
+      }
+    };
+
+    await Promise.all([reply(fighters.a, b.text, setRa), reply(fighters.b, a.text, setRb)]);
+  }
+
   function reset() {
+    setFighters(null);
+    setRa(EMPTY);
+    setRb(EMPTY);
+    setThreaded(false);
     setA(EMPTY);
     setB(EMPTY);
     setWinner(null);
@@ -189,8 +250,8 @@ export function Battle() {
   }
 
   const arena = [
-    { key: "a" as const, label: "Corner A", token: tokenA, side: a },
-    { key: "b" as const, label: "Corner B", token: tokenB, side: b },
+    { key: "a" as const, label: "Corner A", token: fighters?.a ?? tokenA, other: fighters?.b ?? tokenB, side: a, reply: ra },
+    { key: "b" as const, label: "Corner B", token: fighters?.b ?? tokenB, other: fighters?.a ?? tokenA, side: b, reply: rb },
   ];
 
   return (
@@ -259,9 +320,20 @@ export function Battle() {
         </p>
       </section>
 
-      {a.text || b.text || busy ? (
+      {a.text || b.text || busy || a.error || b.error ? (
         <div className="mt-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start">
-          {arena.map(({ key, label, token, side }, index) => (
+          {fighters && (
+            <div className="md:col-span-3">
+              <ArenaStage
+                a={fighters.a}
+                b={fighters.b}
+                clashing={busy || ra.streaming || rb.streaming}
+                winner={winner}
+                finished={!!done}
+              />
+            </div>
+          )}
+          {arena.map(({ key, label, token, other, side, reply }, index) => (
             <motion.div
               key={`${key}-${round}`}
               initial={{ opacity: 0, x: key === "a" ? -48 : 48 }}
@@ -295,11 +367,38 @@ export function Battle() {
               {winner === key && (
                 <p className="font-display text-lg font-bold text-mint">Winner</p>
               )}
+              {threaded && (
+                <div className="space-y-2 border-t border-white/10 pt-4">
+                  <p className="text-sm text-lavender">Replying to {other.name}</p>
+                  <EchoBubble
+                    token={token}
+                    text={reply.text}
+                    streaming={reply.streaming}
+                    placeholder="Warming up"
+                    animateKey={`${key}-reply-${round}`}
+                  />
+                  {reply.error && (
+                    <p role="alert" className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                      {reply.error}
+                    </p>
+                  )}
+                </div>
+              )}
             </motion.div>
           ))}
           <div className="hidden self-center md:order-2 md:flex">
             <Bolt className="h-14 w-10" />
           </div>
+          {done && !threaded && (
+            <div className="flex justify-center md:order-4 md:col-span-3">
+              <button
+                onClick={thread}
+                className="rounded-full border border-electric/40 bg-grape px-6 py-3 font-semibold transition duration-200 hover:-translate-y-0.5 hover:bg-plum active:scale-[0.97]"
+              >
+                Let them reply
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="mt-8">

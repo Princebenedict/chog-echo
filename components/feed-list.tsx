@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { ChogAvatar } from "./chog-avatar";
 import { EmptyState } from "./empty-state";
+import { FeedMeme } from "./feed-meme";
 import { clearFeed, useFeed } from "@/lib/feed-store";
 import { KINDS } from "@/lib/types";
 
@@ -84,6 +85,7 @@ export function FeedList() {
                     {KINDS.find((k) => k.id === item.kind)?.label} on {item.topic || "a pasted post"}, {ago(item.createdAt)}
                   </p>
                   <p className="mt-3 whitespace-pre-wrap break-words leading-snug text-bone/95">{item.text}</p>
+                  {item.meme && <FeedMeme item={item} />}
                 </div>
               </motion.li>
             ))}

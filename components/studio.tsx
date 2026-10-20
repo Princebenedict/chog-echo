@@ -2,19 +2,23 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChogGallery } from "./chog-gallery";
+import { DnaShare } from "./dna-share";
 import { BubbleButton, EchoBubble } from "./echo-bubble";
-import { ChogPicker } from "./chog-picker";
-import { EchoTitle } from "./echo-title";
 import { EmptyState } from "./empty-state";
 import { HeroChog } from "./hero-chog";
+import { HowItWorks } from "./how-it-works";
+import { MemeStudio } from "./meme-studio";
 import { VoiceDna } from "./voice-dna";
 import { useAmbient } from "@/hooks/use-ambient";
 import { errorMessage, useEcho } from "@/hooks/use-echo";
 import { useChogs } from "@/hooks/use-chogs";
+import { usePreloadTokens } from "@/hooks/use-preload";
 import { addFeedItem, newId } from "@/lib/feed-store";
+import { MEME_LAYOUTS, isUnlocked, memeImageSrc, parseMeme, type MemeSpec } from "@/lib/meme";
 import { derivePersona } from "@/lib/personality";
-import { KINDS, type Kind } from "@/lib/types";
+import { KINDS, type ChogToken, type Kind } from "@/lib/types";
 
 type Status = "idle" | "streaming" | "done" | "error";
 
@@ -24,6 +28,8 @@ const PLACEHOLDERS: Record<Kind, string> = {
   meme: "Give me a topic and I will caption it.",
   story: "Give me a topic and I will tell a short one.",
 };
+
+const LAST_KEY = "chog-echo-last-chog";
 
 export function Studio() {
   const chogs = useChogs();
@@ -37,49 +43,101 @@ export function Studio() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [runId, setRunId] = useState(0);
+  const [replyToken, setReplyToken] = useState<ChogToken | null>(null);
+  const [meme, setMeme] = useState<{ spec: MemeSpec; token: ChogToken } | null>(null);
+  const [showDna, setShowDna] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const token = chogs.tokens.find((t) => t.tokenId === selectedId) ?? chogs.tokens[0] ?? null;
   const persona = useMemo(() => (token ? derivePersona(token.traits) : null), [token]);
 
   useAmbient([token]);
+  usePreloadTokens(chogs.tokens);
+
+  // Come back to the Chog that was selected last time.
+  const tokenKey = chogs.tokens.map((t) => t.tokenId).join("|");
+  useEffect(() => {
+    try {
+      const last = localStorage.getItem(LAST_KEY);
+      if (last && chogs.tokens.some((t) => t.tokenId === last)) setSelectedId(last);
+    } catch {
+      // storage blocked: start from the first Chog
+    }
+    // `tokenKey` stands for the token list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokenKey]);
+
+  function select(id: string) {
+    setSelectedId(id);
+    try {
+      localStorage.setItem(LAST_KEY, id);
+    } catch {
+      // ignore
+    }
+  }
 
   const canGenerate =
     !!token && status !== "streaming" && (kind === "reply" ? target.trim().length >= 2 : topic.trim().length >= 2);
 
   async function generate() {
     if (!token || !canGenerate) return;
+    const maker = token;
     setError(null);
-    setText("");
     setStatus("streaming");
     setRunId((n) => n + 1);
+    setReplyToken(maker);
+    if (kind !== "meme") setText("");
 
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
       const full = await run({
-        token,
+        token: maker,
         kind,
         topic: topic.trim(),
         target: target.trim(),
-        onChunk: setText,
+        onChunk: kind === "meme" ? () => {} : setText,
         signal: controller.signal,
       });
+
+      if (kind === "meme") {
+        const parsed = parseMeme(full);
+        const makerPersona = derivePersona(maker.traits);
+        const keep = meme && MEME_LAYOUTS.find((l) => l.id === meme.spec.layout);
+        const layout = keep && isUnlocked(keep, makerPersona) ? keep.id : "classic";
+        const spec: MemeSpec = { layout, ...parsed };
+        setMeme({ spec, token: maker });
+        addFeedItem({
+          id: newId(),
+          createdAt: Date.now(),
+          tokenId: maker.tokenId,
+          tokenName: maker.name,
+          image: maker.image,
+          traits: maker.traits,
+          kind,
+          topic: topic.trim(),
+          text: spec.caption,
+          demo: !!maker.isDemo,
+          meme: spec,
+          imageSrc: memeImageSrc(maker),
+        });
+      } else {
+        addFeedItem({
+          id: newId(),
+          createdAt: Date.now(),
+          tokenId: maker.tokenId,
+          tokenName: maker.name,
+          image: maker.image,
+          traits: maker.traits,
+          kind,
+          topic: topic.trim(),
+          target: kind === "reply" ? target.trim() : undefined,
+          text: full,
+          demo: !!maker.isDemo,
+        });
+      }
       setStatus("done");
-      addFeedItem({
-        id: newId(),
-        createdAt: Date.now(),
-        tokenId: token.tokenId,
-        tokenName: token.name,
-        image: token.image,
-        traits: token.traits,
-        kind,
-        topic: topic.trim(),
-        target: kind === "reply" ? target.trim() : undefined,
-        text: full,
-        demo: !!token.isDemo,
-      });
     } catch (e) {
       if (controller.signal.aborted) {
         setStatus("idle");
@@ -103,15 +161,20 @@ export function Studio() {
   }
 
   const streaming = status === "streaming";
+  const bubbleToken = text && replyToken ? replyToken : token;
+  const memeToken = meme?.token ?? token;
+  const memePersona = useMemo(() => (memeToken ? derivePersona(memeToken.traits) : null), [memeToken]);
 
   return (
     <div>
       <section className="grid items-center gap-6 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] md:gap-10">
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }}>
-          <h1 className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-6xl lg:text-7xl">
+          <h1 className="font-display text-5xl font-extrabold leading-[1.04] tracking-tight sm:text-6xl lg:text-7xl">
             Your Chog does
             <br />
-            <EchoTitle>the talking.</EchoTitle>
+            <span className="inline-block bg-gradient-to-r from-bone via-electric to-mint bg-clip-text pb-[0.1em] text-transparent">
+              the talking.
+            </span>
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-lavender">
             Every trait on your NFT changes how it writes. No Chog in your wallet, no echo.
@@ -170,14 +233,14 @@ export function Studio() {
 
           {token && persona && (
             <>
-              <ChogPicker tokens={chogs.tokens} selectedId={token.tokenId} onSelect={setSelectedId} />
-              <VoiceDna persona={persona} tokenKey={token.tokenId} />
+              <ChogGallery tokens={chogs.tokens} selectedId={token.tokenId} onSelect={select} />
+              <VoiceDna persona={persona} tokenKey={token.tokenId} onShare={() => setShowDna(true)} />
             </>
           )}
         </div>
 
         <div className="min-w-0 space-y-6">
-          {token ? (
+          {token && persona ? (
             <>
               <section aria-label="Composer" aria-busy={streaming} className="glass rounded-3xl p-5 sm:p-6">
                 <div role="tablist" aria-label="Content type" className="flex gap-1 rounded-full bg-ink/60 p-1 ring-1 ring-inset ring-white/5">
@@ -280,27 +343,40 @@ export function Studio() {
                 )}
               </section>
 
-              <EchoBubble
-                token={token}
-                text={text}
-                streaming={streaming}
-                placeholder={PLACEHOLDERS[kind]}
-                animateKey={`${token.tokenId}-${runId}`}
-                actions={
-                  status === "done" && text ? (
-                    <>
-                      <BubbleButton onClick={copy}>Copy</BubbleButton>
-                      <BubbleButton href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(text.slice(0, 270))}`}>
-                        Share on X
-                      </BubbleButton>
-                      <BubbleButton onClick={generate}>Echo again</BubbleButton>
-                      <Link href="/feed" className="rounded-full px-3 py-1.5 text-sm font-semibold text-violet-deep underline underline-offset-4">
-                        Saved to feed
-                      </Link>
-                    </>
-                  ) : undefined
-                }
-              />
+              {kind === "meme" && memePersona && memeToken ? (
+                <MemeStudio
+                  token={memeToken}
+                  persona={memePersona}
+                  spec={meme?.spec ?? null}
+                  generating={streaming}
+                  placeholder={PLACEHOLDERS.meme}
+                  onChange={(spec) => setMeme((m) => (m ? { ...m, spec } : m))}
+                />
+              ) : (
+                bubbleToken && (
+                  <EchoBubble
+                    token={bubbleToken}
+                    text={text}
+                    streaming={streaming}
+                    placeholder={PLACEHOLDERS[kind]}
+                    animateKey={runId}
+                    actions={
+                      status === "done" && text ? (
+                        <>
+                          <BubbleButton onClick={copy}>Copy</BubbleButton>
+                          <BubbleButton href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(text.slice(0, 270))}`}>
+                            Share on X
+                          </BubbleButton>
+                          <BubbleButton onClick={generate}>Echo again</BubbleButton>
+                          <Link href="/feed" className="rounded-full px-3 py-1.5 text-sm font-semibold text-violet-deep underline underline-offset-4">
+                            Saved to feed
+                          </Link>
+                        </>
+                      ) : undefined
+                    }
+                  />
+                )
+              )}
             </>
           ) : (
             !chogs.loading &&
@@ -311,6 +387,10 @@ export function Studio() {
           )}
         </div>
       </div>
+
+      <HowItWorks />
+
+      {showDna && token && persona && <DnaShare token={token} persona={persona} onClose={() => setShowDna(false)} />}
     </div>
   );
 }

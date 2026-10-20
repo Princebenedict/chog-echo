@@ -31,4 +31,6 @@ export type FeedItem = {
   demo: boolean;
   battleId?: string;
   won?: boolean;
+  meme?: { layout: string; top: string; bottom: string; caption: string; description: string };
+  imageSrc?: string | null;
 };

@@ -65,7 +65,8 @@ export function useEcho() {
 
   const run = useCallback(
     async ({ token, kind, topic, target, onChunk, signal }: EchoArgs) => {
-      const base = { kind, topic, target, tokenId: token.tokenId };
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const base = { kind, topic, target, tokenId: token.tokenId, timeZone };
       if (token.isDemo) {
         return streamGenerate({ ...base, mode: "demo" }, onChunk, signal);
       }

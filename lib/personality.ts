@@ -215,6 +215,6 @@ export function derivePersona(traits: Trait[]): Persona {
     toneRules,
     maxWords,
     lengthRule: `Keep it under ${maxWords} words.`,
-    temperature: Math.round((0.7 + axes.chaos * 0.04) * 100) / 100,
+    temperature: Math.round((0.6 + axes.chaos * 0.03) * 100) / 100,
   };
 }

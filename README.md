@@ -55,12 +55,21 @@ I could not verify the real Chog trait names when this was built. Open a few tok
 ## Features
 
 1. Wallet connect on Monad mainnet and testnet
-2. Owned Chog discovery and image display
+2. Owned Chog discovery, with a gallery selection page (search, keyboard arrows, remembers your last pick)
 3. Trait-driven prompt with a visible Voice DNA breakdown
-4. Post, reply, meme and story modes with streaming output
-5. Local feed of past generations (browser storage)
-6. Echo Battle: two Chogs, one topic, you pick the winner
-7. Sample characters when no wallet is connected, clearly labeled as samples
+4. Post, reply, meme and story modes, with replies shown as clean post cards
+5. Meme Studio: the meme is drawn on the Chog's own artwork in the browser (no image AI needed). Six layouts, three of which unlock only when a Chog's traits are strong enough (Confidence 8, Chaos 8, Sarcasm 7). Edit the text, then download, copy, or share
+6. Shareable Voice DNA card image
+7. Local feed of past generations, including meme images (browser storage)
+8. Echo Battle: two Chogs, one topic, you pick the winner, then let them reply to each other
+9. Sample characters when no wallet is connected, clearly labeled as samples
+
+## How memes work
+
+1. The model returns a small JSON object: top text, bottom text, a post caption and a picture description.
+2. The browser draws the meme on a canvas using the Chog's artwork. Fonts are bundled in `public/fonts`, so nothing loads from Google.
+3. Real NFT images are loaded through `/api/token-image`, which fetches the image from the token's own metadata and serves it from this site. That is what allows the browser to export the picture.
+4. X cannot attach an image from a link, so people download the image and add it to their post. On phones, "Share image" opens the share sheet with the file.
 
 ## Making the feed and battles shared
 
@@ -83,4 +92,3 @@ The feed and battles are stored in the browser. To make them public:
 2. Import into Vercel.
 3. Add the env vars from the table.
 4. Deploy.
-# chog-echo

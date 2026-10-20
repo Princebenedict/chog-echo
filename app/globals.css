@@ -97,6 +97,7 @@ body {
   scrollbar-color: rgba(164, 108, 255, 0.45) transparent;
 }
 .scroll-thin::-webkit-scrollbar {
+  width: 6px;
   height: 6px;
 }
 .scroll-thin::-webkit-scrollbar-thumb {
@@ -104,17 +105,7 @@ body {
   border-radius: 999px;
 }
 
-/* ---------- streaming caret and loader ---------- */
-.caret::after {
-  content: "";
-  display: inline-block;
-  width: 0.5ch;
-  height: 1.05em;
-  margin-left: 2px;
-  vertical-align: text-bottom;
-  background: currentColor;
-  animation: blink 0.9s steps(2, start) infinite;
-}
+/* ---------- writing indicators ---------- */
 .dot {
   width: 6px;
   height: 6px;
@@ -128,11 +119,31 @@ body {
 .dot:nth-child(3) {
   animation-delay: 0.3s;
 }
+.word-in {
+  animation: word-in 0.3s ease-out both;
+}
+.shimmer-bar {
+  background: linear-gradient(90deg, transparent, rgba(91, 47, 196, 0.9), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
 
 /* ---------- keyframes ---------- */
-@keyframes blink {
+@keyframes word-in {
+  from {
+    opacity: 0;
+  }
   to {
-    visibility: hidden;
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: -60% 0;
+  }
+  to {
+    background-position: 160% 0;
   }
 }
 @keyframes dot-bounce {
@@ -229,19 +240,6 @@ body {
     transform: translateY(-16px) scale(0.97, 1.04);
   }
 }
-@keyframes echo-ring {
-  0% {
-    transform: scale(1);
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1.22);
-    opacity: 0;
-  }
-}
 @keyframes bolt-pulse {
   0%, 100% {
     filter: drop-shadow(0 0 6px rgba(164, 108, 255, 0.55));
@@ -253,41 +251,18 @@ body {
   }
 }
 
-/* ---------- echo headline ---------- */
-.echo-ghost {
-  position: absolute;
-  inset: 0;
-  color: transparent;
-  pointer-events: none;
-  user-select: none;
-  transform-origin: 50% 55%;
-  -webkit-text-stroke: 2px rgba(85, 240, 176, 0.9);
-  animation: echo-ring 3.6s ease-out infinite;
-}
-.echo-ghost:nth-child(2) {
-  -webkit-text-stroke-color: rgba(135, 84, 246, 0.9);
-  animation-delay: 0.45s;
-}
-.echo-ghost:nth-child(3) {
-  -webkit-text-stroke-color: rgba(164, 108, 255, 0.55);
-  animation-delay: 0.9s;
-}
-
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .world *,
-  .echo-ghost,
-  .caret::after,
+  .dna-sweep,
   .dot,
-  .calm * {
+  .word-in,
+  .shimmer-bar {
     animation: none !important;
   }
-  .roller {
+  .roller,
+  .clash-fx {
     display: none;
-  }
-  .echo-ghost {
-    opacity: 0.35;
-    transform: translate(0.04em, 0.04em);
   }
   :root {
     transition: none;

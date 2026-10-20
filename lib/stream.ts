@@ -1,3 +1,5 @@
+import { tidy } from "./text";
+
 export class EchoError extends Error {
   code: string;
   constructor(message: string, code: string) {
@@ -39,11 +41,12 @@ export async function streamGenerate(
     const { done, value } = await reader.read();
     if (done) break;
     full += decoder.decode(value, { stream: true });
-    onChunk(full);
+    onChunk(tidy(full));
   }
   full += decoder.decode();
-  onChunk(full);
+  const clean = tidy(full);
+  onChunk(clean);
 
-  if (!full.trim()) throw new EchoError("The model returned nothing. Try again.", "EMPTY");
-  return full.trim();
+  if (!clean.trim()) throw new EchoError("The model returned nothing. Try again.", "EMPTY");
+  return clean.trim();
 }

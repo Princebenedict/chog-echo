@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { SESSION_MS, buildAuthMessage } from "@/lib/auth";
 import { getDemoToken } from "@/lib/demo";
+import { buildFacts, safeTimeZone } from "@/lib/facts";
 import { derivePersona } from "@/lib/personality";
 import { buildSystemPrompt, buildUserMessage, sanitizeUserText } from "@/lib/prompt";
 import { clientIp, hit } from "@/lib/rate-limit";
@@ -86,6 +87,7 @@ type Body = {
   address?: string;
   signature?: `0x${string}`;
   issuedAt?: number;
+  timeZone?: string;
 };
 
 export async function POST(req: Request) {
@@ -164,7 +166,7 @@ export async function POST(req: Request) {
   }
 
   const persona = derivePersona(token.traits);
-  const system = buildSystemPrompt(token, persona, kind);
+  const system = buildSystemPrompt(token, persona, kind, buildFacts(safeTimeZone(body.timeZone)));
   const user = buildUserMessage(kind, topic, target);
 
   // Reasoning models spend part of the token budget thinking, so leave plenty of room.
